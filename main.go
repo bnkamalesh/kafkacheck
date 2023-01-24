@@ -48,9 +48,15 @@ func New(ctx context.Context, cfg *Config) (*kgo.Client, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
+
 	err = cli.Ping(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "kafka ping failed")
+	}
+
+	err = cli.Flush(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err)
 	}
 
 	return cli, nil
@@ -115,12 +121,12 @@ func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) erro
 		errs := recs.Errors()
 		if len(errs) > 0 {
 			for _, err := range errs {
-				fmt.Println("rec err:", err)
+				fmt.Println("pollrec.err:", err)
 			}
 			return errors.New("poll record stopped")
 		}
 		recs.EachRecord(func(r *kgo.Record) {
-			fmt.Println("krecs:", string(r.Value))
+			fmt.Println("pollrec:", string(r.Value))
 		})
 	}
 }
@@ -133,7 +139,7 @@ func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) erro
 		errs := fetches.Errors()
 		if len(errs) > 0 {
 			for _, err := range errs {
-				fmt.Println("rec err:", err)
+				fmt.Println("pollfetch: rec err:", err)
 			}
 			return errors.New("poll fetch stopped")
 		}
@@ -142,7 +148,7 @@ func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) erro
 		recordCommits := make([]*kgo.Record, 0, fetches.NumRecords())
 		for !iter.Done() {
 			record := iter.Next()
-			fmt.Println("record.value:", string(record.Value))
+			fmt.Println("pollfetch:", string(record.Value))
 			recordCommits = append(recordCommits, record)
 		}
 
@@ -150,7 +156,7 @@ func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) erro
 		if err != nil {
 			// the subscriber should not exit if there's a commit error. It should just log
 			// and continue listening
-			fmt.Printf("Commit err: %+v\n", err)
+			fmt.Printf("pollfetch, commit err: %+v\n", err)
 		}
 	}
 }
@@ -182,12 +188,12 @@ func main() {
 		return
 	}
 
-	go func() {
-		err := subWithPollRecords(ctx, kcli, kcfg)
-		if err != nil {
-			fmt.Printf("subWithPollRecords:\n%+v\n", err)
-		}
-	}()
+	// go func() {
+	// 	err := subWithPollRecords(ctx, kcli, kcfg)
+	// 	if err != nil {
+	// 		fmt.Printf("subWithPollRecords:\n%+v\n", err)
+	// 	}
+	// }()
 
 	err = subWithPollFetches(ctx, kcli, kcfg)
 	if err != nil {

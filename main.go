@@ -108,7 +108,7 @@ func doRandomChecks(ctx context.Context, kcli *kgo.Client, kcfg Config) error {
 	return nil
 }
 
-func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) {
+func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) error {
 	for {
 		fmt.Println("PollRecords, topics:", kcfg.Topics)
 		recs := kcli.PollRecords(ctx, 3)
@@ -117,7 +117,7 @@ func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) {
 			for _, err := range errs {
 				fmt.Println("rec err:", err)
 			}
-			break
+			return errors.New("poll record stopped")
 		}
 		recs.EachRecord(func(r *kgo.Record) {
 			fmt.Println("krecs:", string(r.Value))
@@ -125,7 +125,7 @@ func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) {
 	}
 }
 
-func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) {
+func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) error {
 	for {
 		ctx := context.Background()
 		fmt.Println("PollFetches, topics:", kcfg.Topics)
@@ -135,7 +135,7 @@ func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) {
 			for _, err := range errs {
 				fmt.Println("rec err:", err)
 			}
-			break
+			return errors.New("poll fetch stopped")
 		}
 
 		iter := fetches.RecordIter()
@@ -154,7 +154,10 @@ func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) {
 		}
 	}
 }
+
 func main() {
+	defer log.Println("exited")
+
 	ctx := context.Background()
 	kcfg := Config{
 		Seeds:                  []string{os.Getenv("KAFKA_SEEDS")},
@@ -179,8 +182,16 @@ func main() {
 		return
 	}
 
-	// go subWithPollRecords(ctx, kcli, kcfg)
-	subWithPollFetches(ctx, kcli, kcfg)
+	go func() {
+		err := subWithPollRecords(ctx, kcli, kcfg)
+		if err != nil {
+			fmt.Printf("subWithPollRecords:\n%+v\n", err)
+		}
+	}()
 
-	log.Println("exited")
+	err = subWithPollFetches(ctx, kcli, kcfg)
+	if err != nil {
+		fmt.Printf("subWithPollFetches:\n%+v\n", err)
+	}
+
 }

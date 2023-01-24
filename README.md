@@ -7,8 +7,8 @@ on your machine
 $ docker compose up -d
 ```
 
-After this is up and running, we can test the app by running the following commands from the terminal.
-It'd be easier to check if we have 3 different terminals.
+After this is up and running, test the app by running the following commands from the terminal.
+It'd be easier to check if we have multiple terminals open.
 
 On terminal 1:
 
@@ -24,6 +24,11 @@ On terminal 2:
 $ docker compose exec -ti kafka bash
 # and inside the container
 $ kafka-console-consumer.sh --bootstrap-server=localhost:9092 --topic=my-topic
+# can try pushing messages with below command
+$ kafka-console-producer.sh --bootstrap-server=localhost:9092 --topic=my-topic
+> msg1
+> msg2
+> msg3
 ```
 
 On terminal 3:
@@ -36,6 +41,6 @@ $ go run main.go
 
 # What's wrong?
 
-The `kafka-console-consumer` prints the message from Kafka as expected. The Go app's subscription
-doesn't do receive the message. And if you check the Kafka container logs, the consumer group
+The `kafka-console-consumer` prints messages from Kafka as expected. The Go app's subscription
+doesn't seem to receive any message. And if you check the Kafka container logs (docker compose logs -f kafka), the consumer group
 registration log for the Go app cannot be found.

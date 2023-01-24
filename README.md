@@ -1,3 +1,5 @@
+This repository was created for testing https://github.com/twmb/franz-go/issues/321
+
 # How to run?
 
 Ensure you have docker & docker compose cli plugin installed. If not, you can use 'docker-compose', if it's available

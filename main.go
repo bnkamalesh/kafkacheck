@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -42,7 +43,7 @@ func New(ctx context.Context, cfg *Config) (*kgo.Client, error) {
 		kgo.ConsumerGroup(cfg.ConsumerGroup),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "kafka client initialization failed")
+		return nil, errors.Wrapf(err, "[%s] kafka client initialization failed", cfg.ConsumerGroup)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
@@ -107,6 +108,52 @@ func doRandomChecks(ctx context.Context, kcli *kgo.Client, kcfg Config) error {
 	return nil
 }
 
+func subWithPollRecords(ctx context.Context, kcli *kgo.Client, kcfg Config) {
+	for {
+		fmt.Println("PollRecords, topics:", kcfg.Topics)
+		recs := kcli.PollRecords(ctx, 3)
+		errs := recs.Errors()
+		if len(errs) > 0 {
+			for _, err := range errs {
+				fmt.Println("rec err:", err)
+			}
+			break
+		}
+		recs.EachRecord(func(r *kgo.Record) {
+			fmt.Println("krecs:", string(r.Value))
+		})
+	}
+}
+
+func subWithPollFetches(ctx context.Context, kcli *kgo.Client, kcfg Config) {
+	for {
+		ctx := context.Background()
+		fmt.Println("PollFetches, topics:", kcfg.Topics)
+		fetches := kcli.PollFetches(ctx)
+		errs := fetches.Errors()
+		if len(errs) > 0 {
+			for _, err := range errs {
+				fmt.Println("rec err:", err)
+			}
+			break
+		}
+
+		iter := fetches.RecordIter()
+		recordCommits := make([]*kgo.Record, 0, fetches.NumRecords())
+		for !iter.Done() {
+			record := iter.Next()
+			fmt.Println("record.value:", string(record.Value))
+			recordCommits = append(recordCommits, record)
+		}
+
+		err := kcli.CommitRecords(ctx, recordCommits...)
+		if err != nil {
+			// the subscriber should not exit if there's a commit error. It should just log
+			// and continue listening
+			fmt.Printf("Commit err: %+v\n", err)
+		}
+	}
+}
 func main() {
 	ctx := context.Background()
 	kcfg := Config{
@@ -132,48 +179,8 @@ func main() {
 		return
 	}
 
-	go func() {
-		for {
-			fmt.Println("PollRecords, topics:", kcfg.Topics)
-			recs := kcli.PollRecords(ctx, 3)
-			errs := recs.Errors()
-			if errs != nil {
-				for _, err := range errs {
-					fmt.Println("rec err:", err)
-				}
-				break
-			}
-			recs.EachRecord(func(r *kgo.Record) {
-				fmt.Println("krecs:", string(r.Value))
-			})
-		}
+	// go subWithPollRecords(ctx, kcli, kcfg)
+	subWithPollFetches(ctx, kcli, kcfg)
 
-	}()
-
-	for {
-		fmt.Println("PollFetches, topics:", kcfg.Topics)
-		fetches := kcli.PollFetches(ctx)
-		errs := fetches.Errors()
-		if len(errs) > 0 {
-			fmt.Printf("Pollfetch err: %+v\n", err)
-			break
-		}
-
-		iter := fetches.RecordIter()
-		recordCommits := make([]*kgo.Record, 0, fetches.NumRecords())
-		for !iter.Done() {
-			record := iter.Next()
-			fmt.Println("record.value:", string(record.Value))
-			recordCommits = append(recordCommits, record)
-		}
-
-		err := kcli.CommitRecords(ctx, recordCommits...)
-		if err != nil {
-			// the subscriber should not exit if there's a commit error. It should just log
-			// and continue listening
-			fmt.Printf("Commit err: %+v\n", err)
-		}
-	}
-
-	fmt.Println("exited")
+	log.Println("exited")
 }

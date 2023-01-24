@@ -1,5 +1,5 @@
 FROM golang:1.19.5-buster
-LABEL owner="My app"
+LABEL owner="bnkamalesh"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 		ca-certificates  \

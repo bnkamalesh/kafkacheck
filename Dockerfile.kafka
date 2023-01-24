@@ -1,6 +1,6 @@
 # This image has all dependencies required for Kafka (e.g. zookeeper) to run as a standalone image
 FROM openjdk:8-jre-alpine
-LABEL owner="Kafka standalone"
+LABEL owner="bnkamalesh"
 
 ENV KAFKA_VERSION=3.3.1
 ENV SCALA_VERSION=2.13

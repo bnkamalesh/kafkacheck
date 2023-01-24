@@ -1,0 +1,38 @@
+version: "3"
+services:
+  kafka:
+    image: kafka_standalone:3.3.1
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.kafka
+    environment:
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+    networks:
+      - my-app
+  application:
+    image: kafkacheck
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.golang
+    environment:
+      KAFKA_SEEDS: "kafka:9092"
+      KAFKA_CONSUMER_TOPIC: "my-topic"
+    volumes:
+      - type: bind
+        source: ${PWD}
+        target: /go/src/kafkacheck
+      - type: bind
+        source: "./.air.toml"
+        target: /etc/.air.toml
+    networks:
+      - my-app
+networks:
+  my-app:
